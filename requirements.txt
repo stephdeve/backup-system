@@ -1,0 +1,14 @@
+# requirements.txt (que je vais générer)
+cryptography>=42.0.0      # Chiffrement
+watchdog>=4.0.0           # Surveillance fichiers
+zstandard>=0.22.0         # Compression
+typer>=0.12.0             # CLI framework
+rich>=13.7.0              # Interface terminal
+pyyaml>=6.0.1             # Config YAML
+click>=8.1.7              # Dépendance typer
+python-dateutil>=2.8.2    # Parsing dates
+
+# Optionnel Sprint 3+
+scikit-learn>=1.4.0       # ML priorisation
+fastapi>=0.109.0          # Web dashboard
+uvicorn>=0.27.0           # ASGI server
