@@ -23,17 +23,20 @@ console = Console()
 def backup(
     source: Optional[str] = typer.Option(None, "--source", "-s", help="Dossier spécifique à sauvegarder"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulation sans sauvegarder"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Affichage détaillé")
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Affichage détaillé"),
+    smart: bool = typer.Option(False, "--smart", help="Priorisation intelligente des fichiers")
 ):
     """
      Lance un backup (complet ou incrémental).
     
     Sans --source : sauvegarde toutes les sources configurées
     Avec --source : sauvegarde uniquement ce dossier
+    Avec --smart : priorise les fichiers importants
     
     Examples:
         mybackup backup
         mybackup backup --source "C:\\Users\\Dev\\Documents"
+        mybackup backup --smart
         mybackup backup --dry-run --verbose
     """
     _ensure_initialized()
@@ -43,6 +46,9 @@ def backup(
     
     if dry_run:
         console.print("[yellow] MODE DRY-RUN (simulation uniquement)[/yellow]\n")
+    
+    if smart:
+        console.print("[cyan] Mode intelligent activé - Priorisation des fichiers...[/cyan]\n")
     
     try:
         engine = BackupEngine(config)
@@ -65,19 +71,103 @@ def backup(
                 exclude = []
             
             if not dry_run:
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TaskProgressColumn(),
-                    console=console
-                ) as progress:
-                    task = progress.add_task(f"[cyan]Backup de {source}...", total=None)
-                    stats = engine.backup_source(source, destination, exclude)
-                    progress.update(task, completed=True)
+                # MODE SMART : Prioriser les fichiers
+                if smart:
+                    from .priority import PriorityQueue
+                    
+                    # Obtenir tous les fichiers
+                    all_files = engine.get_files_to_backup(Path(source), exclude)
+                    
+                    # Créer file de priorité
+                    priority_queue = PriorityQueue()
+                    priority_queue.add_multiple(all_files)
+                    
+                    # Obtenir fichiers triés
+                    sorted_files = priority_queue.get_sorted(reverse=True)
+                    
+                    console.print(f"[cyan] {len(sorted_files)} fichiers analysés et triés[/cyan]\n")
+                    
+                    if verbose:
+                        # Afficher top 10
+                        console.print("[cyan] Top 10 fichiers prioritaires :[/cyan]")
+                        for i, (score, filepath) in enumerate(sorted_files[:10], 1):
+                            console.print(f"  {i}. {filepath.name} (score: {score:.1f})")
+                        console.print()
+                    
+                    # Backup dans l'ordre de priorité
+                    with Progress(
+                        SpinnerColumn(),
+                        TextColumn("[progress.description]{task.description}"),
+                        BarColumn(),
+                        TaskProgressColumn(),
+                        console=console
+                    ) as progress:
+                        task = progress.add_task(
+                            f"[cyan]Backup intelligent de {source}...", 
+                            total=len(sorted_files)
+                        )
+                        
+                        stats = {
+                            'files_backed_up': 0,
+                            'files_skipped': 0,
+                            'files_errors': 0,
+                            'total_size_original': 0,
+                            'total_size_encrypted': 0,
+                            'errors': []
+                        }
+                        
+                        # Backup chaque fichier dans l'ordre de priorité
+                        for score, file_path in sorted_files:
+                            try:
+                                result = engine.backup_file(file_path, Path(destination))
+                                
+                                if result['backed_up']:
+                                    stats['files_backed_up'] += 1
+                                    stats['total_size_original'] += result['size_original']
+                                    stats['total_size_encrypted'] += result['size_encrypted']
+                                else:
+                                    stats['files_skipped'] += 1
+                                
+                                progress.update(task, advance=1)
+                                
+                            except Exception as e:
+                                stats['files_errors'] += 1
+                                stats['errors'].append(f"{file_path}: {e}")
+                                progress.update(task, advance=1)
+                        
+                        progress.update(task, completed=len(sorted_files))
+                
+                else:
+                    # MODE NORMAL : Sans priorisation
+                    with Progress(
+                        SpinnerColumn(),
+                        TextColumn("[progress.description]{task.description}"),
+                        BarColumn(),
+                        TaskProgressColumn(),
+                        console=console
+                    ) as progress:
+                        task = progress.add_task(f"[cyan]Backup de {source}...", total=None)
+                        stats = engine.backup_source(source, destination, exclude)
+                        progress.update(task, completed=True)
             else:
                 # Dry run - juste scanner
                 files = engine.get_files_to_backup(Path(source), exclude)
+                
+                if smart:
+                    from .priority import PriorityQueue, explain_priority
+                    
+                    priority_queue = PriorityQueue()
+                    priority_queue.add_multiple(files)
+                    sorted_files = priority_queue.get_sorted(reverse=True)
+                    
+                    console.print(f"[cyan] {len(sorted_files)} fichiers analysés[/cyan]\n")
+                    console.print("[cyan] Top 20 fichiers prioritaires :[/cyan]\n")
+                    
+                    for i, (score, filepath) in enumerate(sorted_files[:20], 1):
+                        console.print(f"  {i}. {filepath.name:40} | Score: {score:6.1f}")
+                    
+                    console.print(f"\n[dim]... et {len(sorted_files) - 20} autres fichiers[/dim]")
+                
                 stats = {
                     'files_backed_up': len(files),
                     'files_skipped': 0,
@@ -87,6 +177,10 @@ def backup(
                 }
         else:
             # Backup de toutes les sources
+            if smart:
+                console.print("[yellow]  Mode smart non disponible pour backup complet[/yellow]")
+                console.print("[yellow]Utilisez --source pour activer la priorisation[/yellow]\n")
+            
             if not dry_run:
                 with Progress(
                     SpinnerColumn(),
@@ -132,7 +226,6 @@ def backup(
             import traceback
             console.print(f"\n[dim]{traceback.format_exc()}[/dim]")
         raise typer.Exit(1)
-
 
 @app.command()
 def restore(
@@ -248,7 +341,7 @@ def clean(
     keep_days: int = typer.Option(30, "--keep-days", help="Garder les versions des N derniers jours"),
     keep_versions: int = typer.Option(10, "--keep-versions", help="Garder au moins N versions par fichier"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulation sans supprimer")
-):
+    ):
     """
      Nettoie les anciennes versions selon la politique de rétention.
     
@@ -285,6 +378,35 @@ def main():
     except Exception as e:
         console.print(f"\n[red] Erreur inattendue : {e}[/red]")
         sys.exit(1)
+    
+
+@app.command()
+def watch(
+    daemon: bool = typer.Option(False, "--daemon", "-d", help="Lancer en arrière-plan")
+    ):
+    """
+    👁️  Lance la surveillance automatique des fichiers.
+    
+    Détecte les changements en temps réel et effectue des backups automatiques
+    toutes les N minutes (configuré dans watch.interval).
+    
+    Examples:
+        mybackup watch
+        mybackup watch --daemon
+    """
+    _ensure_initialized()
+    config = _validate_config()
+    
+    from .watcher import WatcherDaemon
+    
+    try:
+        daemon_watcher = WatcherDaemon(config)
+        daemon_watcher.start()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Arrêt de la surveillance...[/yellow]")
+    except Exception as e:
+        console.print(f"\n[red] Erreur : {e}[/red]")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
