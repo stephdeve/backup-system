@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)  
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
-[![Platform: Windows](https://img.shields.io/badge/platform-Windows-blue.svg)](https://www.microsoft.com/windows)
+[![Platform: Cross-platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen.svg)](https://github.com/stephdeve/backup-system)
 
 </div>
 
@@ -40,7 +40,7 @@ Table des matières
 - Chiffrement : AES-256-GCM (authentifié)  
 - Compression : Zstandard (zstd)  
 - Surveillance en temps réel (watch) / intervalle configurable  
-- Destinations multiples : disque externe, NAS, partition, clé USB  
+- Destinations multiples : disque externe, NAS, partition, clé USB, cloud chiffré  
 - Versioning : historique par fichier (versions datées)  
 - CLI moderne (Typer + Rich) avec options dry-run et verbose  
 - Restauration granulaire : par fichier, dossier, date ou version
@@ -50,7 +50,7 @@ Table des matières
 ## 📋 Prérequis
 
 - Python 3.10+  
-- Système ciblé : Windows 10/11 (actuellement orienté Windows)  
+- Systèmes supportés : Windows 10/11, macOS (Intel/Apple Silicon) et distributions Linux modernes  
 - Destination de backup : disque externe, NAS, partition séparée, clé USB, etc.
 
 ---
@@ -63,12 +63,23 @@ git clone https://github.com/stephdeve/backup-system.git
 cd backup-system
 ```
 
-2. Créer et activer un environnement virtuel (PowerShell) :
+2. Créer et activer un environnement virtuel :
+
+- Windows PowerShell :
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
-(Si vous utilisez CMD : `.\venv\Scripts\activate.bat`)
+- Windows CMD :
+```bat
+python -m venv venv
+.\venv\Scripts\activate.bat
+```
+- macOS / Linux (bash, zsh) :
+```bash
+python -m venv venv
+source venv/bin/activate
+```
 
 3. Installer les dépendances et le package en mode dev :
 ```bash
@@ -86,9 +97,9 @@ Initialiser MyBackup (crée configuration, DB et clé de chiffrement) :
 mybackup init
 ```
 
-Ceci crée :
-- `%USERPROFILE%\.mybackup\config.yaml` (config + clé de chiffrement)
-- `%USERPROFILE%\.mybackup\backups.db` (base SQLite)
+Ceci crée (chemin selon OS) :
+- Windows : `%USERPROFILE%\.mybackup\config.yaml` et `%USERPROFILE%\.mybackup\backups.db`  
+- macOS / Linux : `~/.mybackup/config.yaml` et `~/.mybackup/backups.db`  
 - Un emplacement de stockage sur la ou les destinations configurées
 
 Important : sauvegardez votre clé de chiffrement ! Sans elle, la restauration est impossible.
@@ -99,20 +110,25 @@ Important : sauvegardez votre clé de chiffrement ! Sans elle, la restauration e
 
 ### Configurer les sources et destinations
 
-Ajouter des dossiers à sauvegarder :
+Ajouter des dossiers à sauvegarder (exemples Windows et POSIX) :
 ```bash
+# Windows
 mybackup add "C:\Users\VotreNom\Documents" --exclude "*.tmp,~*,desktop.ini"
-mybackup add "C:\Users\VotreNom\Projects" --exclude "node_modules,venv,__pycache__,.git"
-mybackup add "C:\Users\VotreNom\Pictures"
+
+# macOS / Linux
+mybackup add "/home/votreuser/Documents" --exclude "*.tmp,~*,.DS_Store"
 ```
 
 Configurer la destination :
 ```bash
-# Disque externe
+# Disque externe (Windows)
 mybackup config set destination "D:\Backups"
 
-# NAS
+# NAS (Windows UNC)
 mybackup config set destination "\\192.168.1.100\backups"
+
+# Destination POSIX (macOS / Linux)
+mybackup config set destination "/mnt/backups"
 ```
 
 Afficher la configuration :
@@ -129,7 +145,8 @@ mybackup backup
 
 Backup d'une source particulière :
 ```bash
-mybackup backup --source "C:\Users\VotreNom\Documents"
+mybackup backup --source "C:\Users\VotreNom\Documents"   # Windows
+mybackup backup --source "/home/votreuser/Documents"      # macOS / Linux
 ```
 
 Simulation (dry-run) :
@@ -143,11 +160,14 @@ Afficher le statut :
 ```bash
 mybackup status
 ```
+
 Affiche : nombre de fichiers sauvegardés, espace utilisé / économisé, dernier backup, sources.
 
 Lister les versions d'un fichier :
 ```bash
 mybackup list "C:\Users\VotreNom\Documents\rapport.pdf"
+# ou
+mybackup list "/home/votreuser/Documents/rapport.pdf"
 ```
 
 ### Restaurations
@@ -155,6 +175,8 @@ mybackup list "C:\Users\VotreNom\Documents\rapport.pdf"
 Restaurer la dernière version d'un fichier :
 ```bash
 mybackup restore --file "C:\Users\VotreNom\Documents\important.docx"
+# ou
+mybackup restore --file "/home/votreuser/Documents/important.docx"
 ```
 
 Restaurer à une date spécifique :
@@ -170,11 +192,15 @@ mybackup restore --file "C:\Users\VotreNom\app.py" --version 3
 Restaurer vers un autre emplacement :
 ```bash
 mybackup restore --file "C:\Users\VotreNom\doc.txt" --destination "C:\Restored\doc.txt"
+# ou
+mybackup restore --file "/home/votreuser/doc.txt" --destination "/home/votreuser/Restored/doc.txt"
 ```
 
 Restaurer tout un dossier :
 ```bash
 mybackup restore --directory "C:\Users\VotreNom\Documents" --destination "C:\Restored"
+# ou
+mybackup restore --directory "/home/votreuser/Documents" --destination "/home/votreuser/Restored"
 ```
 
 Lister tous les fichiers disponibles pour restauration :
@@ -195,7 +221,9 @@ mybackup clean --dry-run
 
 ## 🔧 Configuration avancée
 
-Fichier de configuration : `%USERPROFILE%\.mybackup\config.yaml`
+Fichier de configuration :
+- Windows : `%USERPROFILE%\.mybackup\config.yaml`
+- macOS / Linux : `~/.mybackup/config.yaml`
 
 Exemple structure :
 ```yaml
@@ -238,7 +266,7 @@ mybackup config set retention.auto_clean true
 mybackup config set watch.interval 600
 ```
 
-Ou éditer directement `%USERPROFILE%\.mybackup\config.yaml`.
+Ou éditer directement le fichier de config selon votre OS (ex. `~/.mybackup/config.yaml` ou `%USERPROFILE%\.mybackup\config.yaml`).
 
 ---
 
@@ -267,11 +295,17 @@ La DB contient : chemin original, version, hash, tailles (original/compressé/ch
 
 - Algorithme : AES-256-GCM (authentifié)  
 - Bibliothèque : cryptography (best-effort FIPS-aware usage)  
-- Clé : stockée dans `config.yaml` par défaut — sauvegardez-la hors-site !
+- Clé : stockée dans le fichier de configuration par défaut — sauvegardez-la hors-site !
 
-Sauvegarde de la clé (exemples Windows) :
+Sauvegarde de la clé (exemples) :
+
+- Windows PowerShell :
 ```powershell
-copy %USERPROFILE%\.mybackup\config.yaml F:\backup_key.yaml
+copy $env:USERPROFILE\.mybackup\config.yaml F:\backup_key.yaml
+```
+- macOS / Linux :
+```bash
+cp ~/.mybackup/config.yaml /mnt/secure/backup_key.yaml
 ```
 
 Sans la clé : restauration impossible. Conservez plusieurs copies sécurisées.
@@ -283,10 +317,10 @@ Intégrité : vérification SHA-256 avant et après chiffrement ; corruption dé
 ## 🐛 Dépannage rapide
 
 - "MyBackup n'est pas initialisé" → exécuter `mybackup init`  
-- "Destination manquante" → `mybackup config set destination "D:\Backups"`  
-- "Clé de chiffrement invalide" → restaurer votre `config.yaml` depuis votre copie de sauvegarde
+- "Destination manquante" → `mybackup config set destination "D:\Backups"` (ou chemin POSIX)  
+- "Clé de chiffrement invalide" → restaurer votre config depuis votre copie de sauvegarde
 - Backup lent : diminuer la compression (niveau 1), désactiver la compression ou exclure plus de fichiers  
-- Permission denied : exécuter PowerShell en administrateur et vérifier permissions NTFS
+- Permission denied : vérifier permissions (NTFS sur Windows, permissions POSIX sur macOS/Linux)
 
 ---
 
@@ -301,7 +335,7 @@ Sprint 2 (prévu)
 Futurs
 - Priorisation intelligente (IA)
 - Dashboard web (FastAPI)
-- Support multi-plateformes (Linux, macOS)
+- Support multi-plateformes (Windows, macOS, Linux) -- améliorations en cours
 - Intégration cloud chiffrée
 
 ---
@@ -338,7 +372,10 @@ MIT License — utilisation libre.
 ```bash
 # 1. Installer
 python -m venv venv
+# Windows PowerShell
 .\venv\Scripts\Activate.ps1
+# macOS / Linux
+source venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
 
@@ -346,14 +383,18 @@ pip install -e .
 mybackup init
 
 # 3. Configurer
+# Windows
 mybackup add "C:\Users\VotreNom\Documents"
 mybackup config set destination "D:\Backups"
+# macOS / Linux
+mybackup add "/home/votreuser/Documents"
+mybackup config set destination "/mnt/backups"
 
 # 4. Backup
 mybackup backup
 
 # 5. Restaurer
-mybackup restore --file "C:\Users\...\fichier.txt"
+mybackup restore --file "C:\Users\...\fichier.txt"  # ou chemin POSIX
 ```
 
 **Vos données sont maintenant protégées. 🎉**
