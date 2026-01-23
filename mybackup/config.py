@@ -250,7 +250,8 @@ class Config:
     
     def get_watch_interval(self) -> int:
         """Retourne l'intervalle de surveillance en secondes."""
-        return self.data.get('watch', {}).get('interval', DEFAULT_WATCH_INTERVAL)
+        interval = self.data.get('watch', {}).get('interval', DEFAULT_WATCH_INTERVAL)
+        return int(interval)
     
     def is_realtime_watch(self) -> bool:
         """Vérifie si la surveillance temps réel est activée."""

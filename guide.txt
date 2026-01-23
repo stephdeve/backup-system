@@ -1,0 +1,118 @@
+[string]$GithubRepo = "stephanecode/mybackup",
+```
+
+---
+
+## 🎯 UTILISATION (Nouveau PC)
+
+### Prérequis (Sur Nouveau PC)
+```
+1. ✅ Installer Git
+   → https://git-scm.com/downloads
+
+2. ✅ Installer Python 3.10+
+   → https://www.python.org/downloads/
+   ⚠️  Cocher "Add Python to PATH"
+
+3. ✅ Brancher clé USB avec config.yaml (E:)
+
+4. ✅ Brancher disque externe avec .enc (F:)
+
+
+# 1. Copier le script sur nouveau PC
+notepad restore_from_github.ps1
+# Coller le code ci-dessus
+
+# 2. Modifier le nom du repo GitHub (ligne 5)
+# votre-username/mybackup → stephanecode/mybackup
+
+# 3. Exécuter
+.\restore_from_github.ps1
+
+Optionnel
+.\restore_from_github.ps1 -GithubRepo "stephanecode/mybackup" `
+                          -ConfigUSB "D:" `
+                          -BackupUSB "E:"
+```
+
+---
+
+## 📊 CE QUE LE SCRIPT FAIT
+
+### Étape par Étape
+```
+1. ✅ Vérifie Git installé
+2. ✅ Vérifie Python installé
+3. ✅ Crée C:\Users\VotreNom\.mybackup\
+4. ✅ Copie E:\config.yaml → C:\Users\...\.mybackup\config.yaml
+5. ✅ Copie E:\backups.db → C:\Users\...\.mybackup\backups.db
+6. ✅ Met à jour destination dans config.yaml
+7. ✅ Clone le code depuis GitHub
+8. ✅ Crée environnement virtuel Python
+9. ✅ Installe toutes les dépendances
+10. ✅ Installe MyBackup
+11. ✅ Teste que tout fonctionne
+12. ✅ Affiche les instructions suivantes
+```
+
+**Durée totale** : 2-5 minutes
+
+---
+
+## 🌟 AVANTAGES DE LA SOLUTION GITHUB
+
+### Comparaison
+
+| Aspect | Sans GitHub | Avec GitHub |
+|--------|-------------|-------------|
+| **Sauvegarder code** | ❌ Copier 50+ fichiers | ✅ Juste 2 fichiers (config + db) |
+| **Taille sauvegarde** | ❌ 10-50 MB | ✅ < 1 MB |
+| **Mise à jour code** | ❌ Impossible | ✅ `git pull` |
+| **Installation** | ❌ Complexe | ✅ 1 script automatique |
+| **Portabilité** | ❌ Package volumineux | ✅ Ultra-léger |
+| **Versions** | ❌ Quelle version ? | ✅ Git tags/releases |
+
+---
+
+## 📦 CE QU'IL FAUT SAUVEGARDER
+
+### Clé USB de Secours (Minimaliste)
+```
+E:\MyBackup_Secours\
+├── config.yaml              🔑 LA CLÉ (44 bytes)
+├── backups.db               💾 DB (~1-10 MB)
+└── restore_from_github.ps1  📜 Script (5 KB)
+
+Total : < 15 MB (au lieu de 50+ MB)
+
+sur ancien PC# Publier code sur GitHub (si pas déjà fait)
+cd D:\dev\backup-system
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/stephanecode/mybackup.git
+git push -u origin main
+
+# Sauvegarder config et DB sur clé USB
+mkdir E:\MyBackup_Secours
+copy C:\Users\Stéphane\.mybackup\config.yaml E:\MyBackup_Secours\
+copy C:\Users\Stéphane\.mybackup\backups.db E:\MyBackup_Secours\
+
+# Copier le script de restauration
+copy restore_from_github.ps1 E:\MyBackup_Secours\
+
+En cas de catastrophe
+# Sur NOUVEAU PC
+
+# Installer Git + Python (5 minutes)
+
+# Brancher clé USB (E:)
+# Brancher disque backups (F:)
+
+# Exécuter script
+cd E:\MyBackup_Secours
+.\restore_from_github.ps1
+
+# Attendre 2-5 minutes
+
+# ✅ MyBackup installé et prêt !
