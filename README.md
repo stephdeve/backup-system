@@ -397,4 +397,8 @@ mybackup backup
 mybackup restore --file "C:\Users\...\fichier.txt"  # ou chemin POSIX
 ```
 
+<<<<<<< HEAD
 **Vos données sont maintenant protégées. 🎉**
+=======
+**Vos données sont maintenant protégées. 🎉**
+>>>>>>> 0d82b3e2327da458013841402feabe552baef083
