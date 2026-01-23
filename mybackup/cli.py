@@ -1,6 +1,7 @@
 """
 Interface CLI pour MyBackup
 Utilise Typer pour une CLI moderne et intuitive
+Compatible Windows, Linux, macOS
 """
 
 import typer
@@ -11,6 +12,8 @@ from rich import print as rprint
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
+import platform
+import os
 
 from .config import Config, create_default_config
 from .crypto import CryptoManager
@@ -26,28 +29,53 @@ app = typer.Typer(
 console = Console()
 
 
+def _set_secure_permissions(path: Path):
+    """
+    Définit des permissions sécurisées sur Unix.
+    
+    Args:
+        path: Chemin du fichier/dossier
+    """
+    if platform.system() != 'Windows':
+        try:
+            if path.is_dir():
+                os.chmod(path, 0o700)  # rwx------
+            else:
+                os.chmod(path, 0o600)  # rw-------
+        except Exception as e:
+            console.print(f"[yellow]  Impossible de définir permissions : {e}[/yellow]")
+
+
 @app.command()
 def init(force: bool = typer.Option(False, "--force", "-f", help="Écraser la config existante")):
     """
-    🎯 Initialise MyBackup (première utilisation).
+    🚀 Initialise MyBackup (première utilisation).
     
     Crée :
     - Fichier de configuration
     - Base de données
     - Clé de chiffrement
     
+    Compatible : Windows, Linux, macOS
+    
     Example:
         mybackup init
     """
     if CONFIG_FILE.exists() and not force:
-        console.print(f"[yellow]⚠️  Configuration déjà existante : {CONFIG_FILE}[/yellow]")
+        console.print(f"[yellow]  Configuration déjà existante : {CONFIG_FILE}[/yellow]")
         console.print("[yellow]Utilisez --force pour écraser[/yellow]")
         raise typer.Exit(1)
     
     console.print("[bold blue]🚀 Initialisation de MyBackup...[/bold blue]")
+    console.print(f"[dim]Système : {platform.system()} {platform.release()}[/dim]")
     
     # Créer le dossier de config
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Définir permissions sécurisées (Unix)
+    _set_secure_permissions(CONFIG_DIR)
+    if platform.system() != 'Windows':
+        console.print("[dim] Permissions dossier : 700 (rwx------)[/dim]")
     
     # Générer la clé de chiffrement
     console.print("[dim]Génération de la clé de chiffrement...[/dim]")
@@ -57,18 +85,42 @@ def init(force: bool = typer.Option(False, "--force", "-f", help="Écraser la co
     config = create_default_config(crypto_key)
     config.save()
     
+    # Définir permissions sécurisées sur config.yaml
+    _set_secure_permissions(CONFIG_FILE)
+    if platform.system() != 'Windows':
+        console.print("[dim] Permissions config : 600 (rw-------)[/dim]")
+    
     # Initialiser la base de données
     console.print("[dim]Création de la base de données...[/dim]")
     db = BackupDatabase()
     
-    console.print(f"\n[bold green]✅ MyBackup initialisé avec succès ![/bold green]")
+    # Définir permissions sur DB
+    _set_secure_permissions(db.db_path)
+    
+    console.print(f"\n[bold green] MyBackup initialisé avec succès ![/bold green]")
     console.print(f"\n[dim]Configuration : {CONFIG_FILE}[/dim]")
     console.print(f"[dim]Base de données : {db.db_path}[/dim]")
-    console.print(f"\n[yellow]⚠️  IMPORTANT : Sauvegardez votre clé de chiffrement ![/yellow]")
+    
+    console.print(f"\n[yellow]  IMPORTANT : Sauvegardez votre clé de chiffrement ![/yellow]")
     console.print(f"[yellow]Sans elle, vous ne pourrez PAS restaurer vos backups.[/yellow]")
+    
+    # Instructions adaptées à l'OS
+    console.print(f"\n[bold]💾 Sauvegarder la clé maintenant :[/bold]")
+    
+    if platform.system() == 'Windows':
+        console.print(f"  [cyan]copy {CONFIG_FILE} E:\\BACKUP_KEY_CRITICAL.yaml[/cyan]")
+    else:
+        console.print(f"  [cyan]cp {CONFIG_FILE} /media/usb/BACKUP_KEY_CRITICAL.yaml[/cyan]")
+    
     console.print(f"\n[bold]Prochaines étapes :[/bold]")
-    console.print("  1. Ajoutez des dossiers : [cyan]mybackup add C:\\Users\\...\\Documents[/cyan]")
-    console.print("  2. Configurez la destination : [cyan]mybackup config set destination D:\\Backups[/cyan]")
+    
+    if platform.system() == 'Windows':
+        console.print("  1. Ajoutez des dossiers : [cyan]mybackup add C:\\Users\\...\\Documents[/cyan]")
+        console.print("  2. Configurez la destination : [cyan]mybackup config set destinations.primary D:\\Backups[/cyan]")
+    else:
+        console.print("  1. Ajoutez des dossiers : [cyan]mybackup add /home/$USER/Documents[/cyan]")
+        console.print("  2. Configurez la destination : [cyan]mybackup config set destinations.primary /mnt/backups[/cyan]")
+    
     console.print("  3. Lancez un backup : [cyan]mybackup backup[/cyan]")
 
 
@@ -80,20 +132,25 @@ def add(
     """
     📁 Ajoute un dossier à surveiller.
     
+    Compatible : Windows, Linux, macOS
+    
     Example:
+        # Windows
         mybackup add "C:\\Users\\Dev\\Documents" --exclude "*.tmp,~*"
-        mybackup add "C:\\Users\\Dev\\Projects" -e "node_modules,venv,__pycache__"
+        
+        # Linux/macOS
+        mybackup add "/home/user/Documents" --exclude "*.tmp,~*"
     """
     _ensure_initialized()
     
-    path_obj = Path(path)
+    path_obj = Path(path).expanduser()  # Supporte ~/
     
     if not path_obj.exists():
-        console.print(f"[red]❌ Dossier introuvable : {path}[/red]")
+        console.print(f"[red] Dossier introuvable : {path}[/red]")
         raise typer.Exit(1)
     
     if not path_obj.is_dir():
-        console.print(f"[red]❌ Ce n'est pas un dossier : {path}[/red]")
+        console.print(f"[red] Ce n'est pas un dossier : {path}[/red]")
         raise typer.Exit(1)
     
     config = Config()
@@ -106,7 +163,7 @@ def add(
     config.add_source(str(path_obj.absolute()), exclude_list)
     config.save()
     
-    console.print(f"[green]✅ Dossier ajouté : {path_obj.absolute()}[/green]")
+    console.print(f"[green] Dossier ajouté : {path_obj.absolute()}[/green]")
     if exclude_list:
         console.print(f"[dim]Exclusions : {', '.join(exclude_list)}[/dim]")
 
@@ -118,16 +175,18 @@ def remove(path: str = typer.Argument(..., help="Chemin du dossier à retirer"))
     
     Example:
         mybackup remove "C:\\Users\\Dev\\Documents"
+        mybackup remove "/home/user/Documents"
     """
     _ensure_initialized()
     
     config = Config()
+    path_expanded = str(Path(path).expanduser().absolute())
     
-    if config.remove_source(path):
+    if config.remove_source(path_expanded):
         config.save()
-        console.print(f"[green]✅ Dossier retiré : {path}[/green]")
+        console.print(f"[green] Dossier retiré : {path_expanded}[/green]")
     else:
-        console.print(f"[yellow]⚠️  Dossier non trouvé dans la config : {path}[/yellow]")
+        console.print(f"[yellow]  Dossier non trouvé dans la config : {path_expanded}[/yellow]")
         raise typer.Exit(1)
 
 
@@ -142,7 +201,8 @@ def config_command(
     
     Examples:
         mybackup config show
-        mybackup config set destination "D:\\Backups"
+        mybackup config set destinations.primary "D:\\Backups"
+        mybackup config set destinations.primary "/mnt/backups"
         mybackup config get compression.level
     """
     _ensure_initialized()
@@ -155,16 +215,20 @@ def config_command(
     
     elif action == "set":
         if not key or value is None:
-            console.print("[red]❌ Usage : mybackup config set <clé> <valeur>[/red]")
+            console.print("[red] Usage : mybackup config set <clé> <valeur>[/red]")
             raise typer.Exit(1)
+        
+        # Expansion des chemins Unix (~/)
+        if key.startswith('destinations.') or 'path' in key.lower():
+            value = str(Path(value).expanduser().absolute())
         
         config.set(key, value)
         config.save()
-        console.print(f"[green]✅ Configuration mise à jour : {key} = {value}[/green]")
+        console.print(f"[green] Configuration mise à jour : {key} = {value}[/green]")
     
     elif action == "get":
         if not key:
-            console.print("[red]❌ Usage : mybackup config get <clé>[/red]")
+            console.print("[red] Usage : mybackup config get <clé>[/red]")
             raise typer.Exit(1)
         
         value = config.get(key)
@@ -184,6 +248,8 @@ def status():
     """
     📊 Affiche le statut du système de backup.
     
+    Compatible : Windows, Linux, macOS
+    
     Example:
         mybackup status
     """
@@ -197,7 +263,8 @@ def status():
     sources = config.get_sources()
     destination = config.get_destination('primary')
     
-    console.print("\n[bold blue]📊 État de MyBackup[/bold blue]\n")
+    console.print(f"\n[bold blue]📊 État de MyBackup[/bold blue]")
+    console.print(f"[dim]Système : {platform.system()} {platform.release()}[/dim]\n")
     
     # Table de stats
     table = Table(show_header=False, box=None)
@@ -233,7 +300,7 @@ def status():
     if destination:
         console.print(f"  • {destination}")
     else:
-        console.print("  [yellow]⚠️  Aucune destination configurée[/yellow]")
+        console.print("  [yellow]  Aucune destination configurée[/yellow]")
 
 
 @app.command(name="list")
@@ -246,21 +313,25 @@ def list_versions(
     
     Example:
         mybackup list "C:\\Users\\Dev\\Documents\\rapport.pdf"
-        mybackup list "C:\\Users\\Dev\\app.py" --limit 5
+        mybackup list "/home/user/Documents/rapport.pdf"
+        mybackup list "~/Documents/rapport.pdf" --limit 5
     """
     _ensure_initialized()
     
+    # Expansion des chemins
+    file_path_expanded = str(Path(file_path).expanduser().absolute())
+    
     db = BackupDatabase()
-    versions = db.get_all_versions(file_path)
+    versions = db.get_all_versions(file_path_expanded)
     
     if not versions:
-        console.print(f"[yellow]⚠️  Aucun backup trouvé pour : {file_path}[/yellow]")
+        console.print(f"[yellow]  Aucun backup trouvé pour : {file_path_expanded}[/yellow]")
         return
     
     # Limiter le nombre de résultats
     versions = versions[-limit:]
     
-    console.print(f"\n[bold]📜 Historique de : {file_path}[/bold]\n")
+    console.print(f"\n[bold]📜 Historique de : {file_path_expanded}[/bold]\n")
     
     table = Table()
     table.add_column("Version", style="cyan")
@@ -279,6 +350,58 @@ def list_versions(
     
     console.print(table)
     console.print(f"\n[dim]Total : {len(versions)} version(s) affichée(s)[/dim]")
+
+
+@app.command()
+def sysinfo():
+    """
+    🖥️  Affiche les informations système.
+    
+    Utile pour diagnostiquer les problèmes de compatibilité.
+    
+    Example:
+        mybackup sysinfo
+    """
+    console.print("\n[bold blue]🖥️  Informations Système[/bold blue]\n")
+    
+    table = Table(show_header=False, box=None)
+    table.add_column("Info", style="cyan")
+    table.add_column("Valeur", style="bold")
+    
+    table.add_row("Système d'exploitation", platform.system())
+    table.add_row("Version OS", platform.release())
+    table.add_row("Architecture", platform.machine())
+    table.add_row("Version Python", platform.python_version())
+    table.add_row("Dossier home", str(Path.home()))
+    table.add_row("Dossier config", str(CONFIG_DIR))
+    
+    # Permissions Unix
+    if platform.system() != 'Windows':
+        if CONFIG_DIR.exists():
+            import stat
+            mode = oct(os.stat(CONFIG_DIR).st_mode)[-3:]
+            table.add_row("Permissions config", mode)
+    
+    console.print(table)
+    
+    # Modules
+    console.print("\n[bold]📦 Modules Python :[/bold]")
+    modules = [
+        'cryptography',
+        'zstandard',
+        'watchdog',
+        'typer',
+        'rich',
+        'yaml'
+    ]
+    
+    for module in modules:
+        try:
+            mod = __import__(module)
+            version = getattr(mod, '__version__', 'N/A')
+            console.print(f"   {module:15} {version}")
+        except ImportError:
+            console.print(f"   {module:15} (non installé)")
 
 
 def _ensure_initialized():

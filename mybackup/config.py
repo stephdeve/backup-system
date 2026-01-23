@@ -1,23 +1,32 @@
 """
 Gestion de la configuration pour MyBackup
 Utilise YAML pour une configuration lisible
+Compatible Windows, Linux, macOS
 """
 
 import yaml
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 from datetime import datetime
+import platform
+import os
+
 from . import CONFIG_DIR, CONFIG_FILE, DEFAULT_COMPRESSION_LEVEL, DEFAULT_WATCH_INTERVAL
 
 
 class Config:
     """
     Gestionnaire de configuration centralisé.
+    Compatible multi-plateformes.
     """
     
     DEFAULT_CONFIG = {
         'version': '1.0.0',
         'created_at': None,
+        'system': {
+            'os': None,  # Sera rempli automatiquement
+            'platform': None,
+        },
         'encryption': {
             'algorithm': 'AES-256-GCM',
             'key': None,  # Sera généré à l'init
@@ -61,12 +70,22 @@ class Config:
             config_path: Chemin du fichier de config (utilise le défaut si None)
         """
         self.config_path = Path(config_path) if config_path else CONFIG_FILE
+        self.os_type = platform.system()  # 'Windows', 'Linux', 'Darwin'
         self.data = {}
         
         if self.config_path.exists():
             self.load()
         else:
             self.data = self.DEFAULT_CONFIG.copy()
+            self._set_system_info()
+    
+    def _set_system_info(self):
+        """Enregistre les informations système dans la config."""
+        if 'system' not in self.data:
+            self.data['system'] = {}
+        
+        self.data['system']['os'] = self.os_type
+        self.data['system']['platform'] = platform.platform()
     
     def load(self):
         """Charge la configuration depuis le fichier YAML."""
@@ -76,6 +95,10 @@ class Config:
             
             # Merge avec config par défaut pour nouvelles clés
             self.data = self._merge_with_defaults(self.data)
+            
+            # Mettre à jour infos système
+            self._set_system_info()
+            
         except Exception as e:
             raise ValueError(f"Erreur lors du chargement de la config : {e}")
     
@@ -84,11 +107,38 @@ class Config:
         # Créer le dossier si nécessaire
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         
+        # Définir permissions Unix
+        if self.os_type != 'Windows':
+            self._set_secure_permissions(self.config_path.parent)
+        
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.data, f, default_flow_style=False, allow_unicode=True)
+            
+            # Permissions sur le fichier
+            if self.os_type != 'Windows':
+                self._set_secure_permissions(self.config_path)
+                
         except Exception as e:
             raise ValueError(f"Erreur lors de la sauvegarde de la config : {e}")
+    
+    def _set_secure_permissions(self, path: Path):
+        """
+        Définit des permissions sécurisées (Unix uniquement).
+        
+        Args:
+            path: Chemin du fichier/dossier
+        """
+        if self.os_type == 'Windows':
+            return
+        
+        try:
+            if path.is_dir():
+                os.chmod(path, 0o700)  # rwx------
+            else:
+                os.chmod(path, 0o600)  # rw-------
+        except Exception:
+            pass  # Ignorer les erreurs de permissions
     
     def _merge_with_defaults(self, config: dict) -> dict:
         """Fusionne la config chargée avec les valeurs par défaut."""
@@ -164,12 +214,16 @@ class Config:
         
         Example:
             >>> config = Config()
-            >>> config.add_source("C:/Users/Dev/Documents", ["*.tmp", "~*"])
+            >>> config.add_source("/home/user/Documents", ["*.tmp", "~*"])
         """
+        # Expansion des chemins Unix (~/)
+        path_obj = Path(path).expanduser().resolve()
+        
         source = {
-            'path': str(Path(path).resolve()),
+            'path': str(path_obj),
             'exclude': exclude or [],
             'added_at': datetime.now().isoformat(),
+            'os': self.os_type,  # Enregistrer l'OS d'origine
         }
         
         # Vérifier si déjà présent
@@ -190,9 +244,11 @@ class Config:
         Returns:
             True si retiré, False si pas trouvé
         """
-        path = str(Path(path).resolve())
+        path_obj = Path(path).expanduser().resolve()
+        path_str = str(path_obj)
+        
         original_len = len(self.data['sources'])
-        self.data['sources'] = [s for s in self.data['sources'] if s['path'] != path]
+        self.data['sources'] = [s for s in self.data['sources'] if s['path'] != path_str]
         return len(self.data['sources']) < original_len
     
     def get_sources(self) -> List[Dict]:
@@ -214,13 +270,14 @@ class Config:
         
         Example:
             >>> config = Config()
-            >>> config.set_destination("D:/Backups", "primary")
-            >>> config.set_destination("//NAS/backups", "secondary")
+            >>> config.set_destination("/mnt/backups", "primary")
         """
         if destination_type not in ['primary', 'secondary']:
             raise ValueError("destination_type doit être 'primary' ou 'secondary'")
         
-        self.data['destinations'][destination_type] = str(Path(path).resolve())
+        # Expansion des chemins Unix
+        path_obj = Path(path).expanduser().resolve()
+        self.data['destinations'][destination_type] = str(path_obj)
     
     def get_destination(self, destination_type: str = 'primary') -> Optional[str]:
         """
@@ -288,7 +345,8 @@ class Config:
         
         # Vérifier que les chemins sources existent
         for source in self.get_sources():
-            if not Path(source['path']).exists():
+            path_obj = Path(source['path']).expanduser()
+            if not path_obj.exists():
                 errors.append(f"Source introuvable : {source['path']}")
         
         return errors
@@ -316,4 +374,5 @@ def create_default_config(encryption_key: str) -> Config:
     config = Config()
     config.set_encryption_key(encryption_key)
     config.data['created_at'] = datetime.now().isoformat()
+    config._set_system_info()
     return config
