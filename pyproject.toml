@@ -1,8 +1,45 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools<70", "wheel"]
 build-backend = "setuptools.build_meta"
+
 
 [project]
 name = "cryptbackup"
 version = "1.0.5"
-license = "MIT"
+description = "Backup incremental AES-256, compression Zstandard, destinations multiples (USB, NAS, disque externe)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "StephDev", email = "dev@example.com"},
+]
+keywords = ["backup", "encryption", "aes-256", "nas", "usb", "zstandard"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: System Administrators",
+    "Topic :: System :: Archiving :: Backup",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "cryptography>=42.0.0",
+    "zstandard>=0.22.0",
+    "watchdog>=4.0.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/stephdeve/cryptbackup"
+"Bug Tracker" = "https://github.com/stephdeve/cryptbackup/issues"
+Documentation = "https://github.com/stephdeve/cryptbackup#readme"
+PyPI = "https://pypi.org/project/cryptbackup/"
+
+[project.scripts]
+cryptbackup = "mybackup.__main__:main"
