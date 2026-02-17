@@ -1,18 +1,20 @@
-# 🔐 MyBackup — Système de backup incrémental intelligent
+# 🔐 CryptBackup — Système de backup incrémental intelligent
 
 <div align="center">
 
 **Sauvegarde automatique avec chiffrement AES-256, compression Zstandard et détection en temps réel**
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)  
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
-[![Platform: Cross-platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen.svg)](https://github.com/stephdeve/backup-system)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Platform: Cross-platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen.svg)](https://github.com/stephdeve/cryptbackup)
+[![PyPI](https://img.shields.io/pypi/v/cryptbackup)](https://pypi.org/project/cryptbackup/)
+[![Downloads](https://img.shields.io/pypi/dm/cryptbackup)](https://pypi.org/project/cryptbackup/)
 
 </div>
 
 ---
 
-Table des matières
+## Table des matières
 - [Fonctionnalités](#-fonctionnalités)
 - [Prérequis](#-prérequis)
 - [Installation rapide](#-installation-rapide)
@@ -22,7 +24,8 @@ Table des matières
   - [Lancer un backup](#lancer-un-backup)
   - [Statut et historique](#statut-et-historique)
   - [Restaurations](#restaurations)
-  - [Nettoyage (retention)](#nettoyage-retention)
+  - [Nettoyage (rétention)](#nettoyage-rétention)
+- [Destinations supportées](#-destinations-supportées)
 - [Configuration avancée](#-configuration-avancée)
 - [Comment ça marche](#-comment-ça-marche)
 - [Sécurité](#-sécurité)
@@ -34,33 +37,42 @@ Table des matières
 
 ---
 
-## 🎯 Fonctionnalités
+##  Fonctionnalités
 
-- Backup incrémental : sauvegarde uniquement les fichiers modifiés depuis la dernière version  
-- Chiffrement : AES-256-GCM (authentifié)  
-- Compression : Zstandard (zstd)  
-- Surveillance en temps réel (watch) / intervalle configurable  
-- Destinations multiples : disque externe, NAS, partition, clé USB, cloud chiffré  
-- Versioning : historique par fichier (versions datées)  
-- CLI moderne (Typer + Rich) avec options dry-run et verbose  
+- Backup incrémental : sauvegarde uniquement les fichiers modifiés depuis la dernière version
+- Chiffrement : AES-256-GCM (authentifié)
+- Compression : Zstandard (zstd)
+- Surveillance en temps réel (watch) / intervalle configurable
+- Destinations multiples : PC local, disque externe, NAS, clé USB — jusqu'à 3 destinations simultanées
+- Détection automatique des périphériques (USB débranché, NAS hors ligne)
+- Versioning : historique par fichier (versions datées)
+- CLI moderne (Typer + Rich) avec options dry-run et verbose
 - Restauration granulaire : par fichier, dossier, date ou version
 
 ---
 
-## 📋 Prérequis
+##  Prérequis
 
-- Python 3.10+  
-- Systèmes supportés : Windows 10/11, macOS (Intel/Apple Silicon) et distributions Linux modernes  
-- Destination de backup : disque externe, NAS, partition séparée, clé USB, etc.
+- Python 3.10+
+- Systèmes supportés : Windows 10/11, macOS (Intel/Apple Silicon) et distributions Linux modernes
+- Destination de backup : dossier local, disque externe, NAS, clé USB, etc.
 
 ---
 
-## 🚀 Installation rapide
+##  Installation rapide
+
+### Option A — Via PyPI (recommandé)
+```bash
+pip install cryptbackup
+cryptbackup init
+```
+
+### Option B — Depuis le code source (développement)
 
 1. Cloner le dépôt :
 ```bash
 git clone https://github.com/stephdeve/backup-system.git
-cd backup-system
+cd cryptbackup
 ```
 
 2. Créer et activer un environnement virtuel :
@@ -75,13 +87,13 @@ python -m venv venv
 python -m venv venv
 .\venv\Scripts\activate.bat
 ```
-- macOS / Linux (bash, zsh) :
+- macOS / Linux :
 ```bash
 python -m venv venv
 source venv/bin/activate
 ```
 
-3. Installer les dépendances et le package en mode dev :
+3. Installer les dépendances :
 ```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
@@ -90,132 +102,216 @@ pip install -e .
 
 ---
 
-## ⚙️ Initialisation
+##  Initialisation
 
-Initialiser MyBackup (crée configuration, DB et clé de chiffrement) :
+Initialiser CryptBackup (crée configuration, base de données et clé de chiffrement) :
 ```bash
-mybackup init
+cryptbackup init
 ```
 
-Ceci crée (chemin selon OS) :
-- Windows : `%USERPROFILE%\.mybackup\config.yaml` et `%USERPROFILE%\.mybackup\backups.db`  
-- macOS / Linux : `~/.mybackup/config.yaml` et `~/.mybackup/backups.db`  
-- Un emplacement de stockage sur la ou les destinations configurées
+Ceci crée automatiquement selon votre OS :
+- Windows : `%USERPROFILE%\.mybackup\config.yaml` et `%USERPROFILE%\.mybackup\backups.db`
+- macOS / Linux : `~/.mybackup/config.yaml` et `~/.mybackup/backups.db`
 
-Important : sauvegardez votre clé de chiffrement ! Sans elle, la restauration est impossible.
+>  **IMPORTANT** : Sauvegardez immédiatement votre `config.yaml` sur un support externe.
+> Sans votre clé de chiffrement, la restauration est **impossible**.
 
 ---
 
-## 📖 Utilisation
+##  Utilisation
 
 ### Configurer les sources et destinations
 
-Ajouter des dossiers à sauvegarder (exemples Windows et POSIX) :
+Ajouter des dossiers à sauvegarder :
 ```bash
 # Windows
-mybackup add "C:\Users\VotreNom\Documents" --exclude "*.tmp,~*,desktop.ini"
+cryptbackup add "C:\Users\VotreNom\Documents" --exclude "*.tmp,~*,desktop.ini"
 
 # macOS / Linux
-mybackup add "/home/votreuser/Documents" --exclude "*.tmp,~*,.DS_Store"
+cryptbackup add "/home/votreuser/Documents" --exclude "*.tmp,~*,.DS_Store"
 ```
 
-Configurer la destination :
+Configurer les destinations (voir section complète [Destinations supportées](#-destinations-supportées)) :
 ```bash
-# Disque externe (Windows)
-mybackup config set destination "D:\Backups"
+# Destination principale (dossier local)
+cryptbackup config set destinations.primary "C:\Users\VotreNom\Backup"
 
-# NAS (Windows UNC)
-mybackup config set destination "\\192.168.1.100\backups"
+# Destination secondaire (clé USB ou disque externe)
+cryptbackup config set destinations.secondary "E:\Backup"
 
-# Destination POSIX (macOS / Linux)
-mybackup config set destination "/mnt/backups"
+# Destination tertiaire (NAS réseau)
+cryptbackup config set destinations.tertiary "\\192.168.1.100\backup"
 ```
 
 Afficher la configuration :
 ```bash
-mybackup config show
+cryptbackup config show
 ```
 
 ### Lancer un backup
 
 Backup de toutes les sources :
 ```bash
-mybackup backup
+cryptbackup backup
 ```
 
 Backup d'une source particulière :
 ```bash
-mybackup backup --source "C:\Users\VotreNom\Documents"   # Windows
-mybackup backup --source "/home/votreuser/Documents"      # macOS / Linux
+# Windows
+cryptbackup backup --source "C:\Users\VotreNom\Documents"
+
+# macOS / Linux
+cryptbackup backup --source "/home/votreuser/Documents"
+```
+
+Backup intelligent (priorisation des fichiers importants) :
+```bash
+cryptbackup backup --smart
 ```
 
 Simulation (dry-run) :
 ```bash
-mybackup backup --dry-run --verbose
+cryptbackup backup --dry-run --verbose
 ```
 
 ### Statut et historique
 
 Afficher le statut :
 ```bash
-mybackup status
+cryptbackup status
 ```
 
-Affiche : nombre de fichiers sauvegardés, espace utilisé / économisé, dernier backup, sources.
+Affiche : fichiers sauvegardés, espace utilisé / économisé, dernier backup, sources et **état de toutes les destinations**.
 
 Lister les versions d'un fichier :
 ```bash
-mybackup list "C:\Users\VotreNom\Documents\rapport.pdf"
-# ou
-mybackup list "/home/votreuser/Documents/rapport.pdf"
+# Windows
+cryptbackup list "C:\Users\VotreNom\Documents\rapport.pdf"
+
+# macOS / Linux
+cryptbackup list "/home/votreuser/Documents/rapport.pdf"
 ```
 
 ### Restaurations
 
 Restaurer la dernière version d'un fichier :
 ```bash
-mybackup restore --file "C:\Users\VotreNom\Documents\important.docx"
-# ou
-mybackup restore --file "/home/votreuser/Documents/important.docx"
+# Windows
+cryptbackup restore --file "C:\Users\VotreNom\Documents\important.docx"
+
+# macOS / Linux
+cryptbackup restore --file "/home/votreuser/Documents/important.docx"
 ```
 
 Restaurer à une date spécifique :
 ```bash
-mybackup restore --file "C:\Users\VotreNom\Documents\rapport.pdf" --date 2026-01-15
+cryptbackup restore --file "C:\Users\VotreNom\Documents\rapport.pdf" --date 2026-01-15
 ```
 
 Restaurer une version précise :
 ```bash
-mybackup restore --file "C:\Users\VotreNom\app.py" --version 3
+cryptbackup restore --file "C:\Users\VotreNom\app.py" --version 3
 ```
 
 Restaurer vers un autre emplacement :
 ```bash
-mybackup restore --file "C:\Users\VotreNom\doc.txt" --destination "C:\Restored\doc.txt"
-# ou
-mybackup restore --file "/home/votreuser/doc.txt" --destination "/home/votreuser/Restored/doc.txt"
+# Windows
+cryptbackup restore --file "C:\Users\VotreNom\doc.txt" --destination "C:\Restored\doc.txt"
+
+# macOS / Linux
+cryptbackup restore --file "/home/votreuser/doc.txt" --destination "/home/votreuser/Restored/doc.txt"
 ```
 
 Restaurer tout un dossier :
 ```bash
-mybackup restore --directory "C:\Users\VotreNom\Documents" --destination "C:\Restored"
-# ou
-mybackup restore --directory "/home/votreuser/Documents" --destination "/home/votreuser/Restored"
+# Windows
+cryptbackup restore --directory "C:\Users\VotreNom\Documents" --destination "C:\Restored"
+
+# macOS / Linux
+cryptbackup restore --directory "/home/votreuser/Documents" --destination "/home/votreuser/Restored"
 ```
 
 Lister tous les fichiers disponibles pour restauration :
 ```bash
-mybackup restore --list
+cryptbackup restore --list
 ```
 
 ### Nettoyage / Rétention
 
-Conserver N jours et un nombre de versions par fichier :
 ```bash
-mybackup clean --keep-days 30 --keep-versions 10
-# Simulation
-mybackup clean --dry-run
+# Conserver 30 jours et 10 versions par fichier
+cryptbackup clean --keep-days 30 --keep-versions 10
+
+# Simulation avant suppression
+cryptbackup clean --dry-run
 ```
+
+---
+
+##  Destinations supportées
+
+CryptBackup supporte **4 types de destinations** simultanément.
+Configurez jusqu'à 3 destinations pour une protection maximale selon la règle **3-2-1** :
+*3 copies, 2 supports différents, 1 hors site.*
+
+### Types de destinations
+
+| Icône | Type | Exemple Windows | Exemple Linux/macOS |
+|-------|------|-----------------|---------------------|
+| 🖥️ | Dossier local (PC) | `C:\Users\Steve\Backup` | `/home/user/backup` |
+| 🔌 | Clé USB | `E:\Backup` | `/media/user/usb/backup` |
+| 💽 | Disque dur externe | `F:\Backup` | `/media/user/disk/backup` |
+| 🌐 | NAS (réseau) | `\\192.168.1.100\backup` | `/mnt/nas/backup` |
+
+### Configuration complète
+
+#### Windows
+```bash
+# Dossier local sur le PC
+cryptbackup config set destinations.primary "C:\Users\Steve\Backup"
+
+# Clé USB ou disque externe
+cryptbackup config set destinations.secondary "E:\Backup"
+
+# NAS sur le réseau local
+cryptbackup config set destinations.tertiary "\\192.168.1.100\backup"
+```
+
+#### Linux / macOS
+```bash
+# Dossier local
+cryptbackup config set destinations.primary "/home/user/backup"
+
+# Disque externe monté
+cryptbackup config set destinations.secondary "/media/user/disk/backup"
+
+# NAS monté
+cryptbackup config set destinations.tertiary "/mnt/nas/backup"
+```
+
+### Vérification de l'état des destinations
+
+```bash
+cryptbackup status
+```
+
+**Toutes les destinations connectées :**
+```
+ Destinations :
+  🖥️  [primary]   C:\Users\Steve\Backup        Libre : 45.2 GB
+  🔌  [secondary] E:\Backup                    Libre : 120.5 GB
+  🌐  [tertiary]  \\192.168.1.100\backup       Libre : 1.2 TB
+```
+
+**USB débranché — CryptBackup continue sur les autres :**
+```
+ Destinations :
+  🖥️  [primary]   C:\Users\Steve\Backup        Libre : 45.2 GB
+  🔌  [secondary] E:\Backup                    Destination non trouvée (périphérique débranché ?)
+  🌐  [tertiary]  \\192.168.1.100\backup       Libre : 1.2 TB
+```
+
+> **Note :** Si une destination est inaccessible (USB débranché, NAS hors ligne), CryptBackup continue automatiquement vers les destinations disponibles et vous en informe.
 
 ---
 
@@ -225,9 +321,9 @@ Fichier de configuration :
 - Windows : `%USERPROFILE%\.mybackup\config.yaml`
 - macOS / Linux : `~/.mybackup/config.yaml`
 
-Exemple structure :
+Exemple de structure complète :
 ```yaml
-version: '1.0.0'
+version: '1.0.1'
 created_at: '2026-01-20T14:30:00'
 
 encryption:
@@ -245,8 +341,9 @@ sources:
     added_at: '2026-01-20T14:35:00'
 
 destinations:
-  primary: D:\Backups
-  secondary: null
+  primary: C:\Users\VotreNom\Backup     # Dossier local
+  secondary: E:\Backup                  # Clé USB / disque externe
+  tertiary: \\192.168.1.100\backup      # NAS
 
 watch:
   enabled: true
@@ -261,109 +358,121 @@ retention:
 
 Modifier via CLI :
 ```bash
-mybackup config set compression.level 5
-mybackup config set retention.auto_clean true
-mybackup config set watch.interval 600
+cryptbackup config set compression.level 5
+cryptbackup config set retention.auto_clean true
+cryptbackup config set watch.interval 600
 ```
-
-Ou éditer directement le fichier de config selon votre OS (ex. `~/.mybackup/config.yaml` ou `%USERPROFILE%\.mybackup\config.yaml`).
 
 ---
 
-## 📊 Comment ça marche (aperçu technique)
+##  Comment ça marche (aperçu technique)
 
-Pour chaque fichier :
-1. Calcul du hash SHA-256 (détecte modifications)  
-2. Compression Zstandard (zstd)  
-3. Chiffrement AES-256-GCM (Cryptography.io)  
-4. Stockage du binaire chiffré (.enc) sur la destination  
-5. Enregistrement des métadonnées dans la base SQLite (hash, taille, timestamp, version)
+Pour chaque fichier modifié :
+1. Calcul du hash SHA-256 (détecte les modifications)
+2. Compression Zstandard (zstd)
+3. Chiffrement AES-256-GCM (Cryptography.io)
+4. Stockage du binaire chiffré (`.enc`) sur chaque destination accessible
+5. Enregistrement des métadonnées dans SQLite (hash, taille, timestamp, version)
 
-Structure sur destination (exemple) :
+Structure sur destination :
 ```
 D:\Backups\
-├── a3f5c892e1b4...enc  (version 1 de app.py)
-├── d9g3h456f2c8...enc  (version 2 de app.py)
+├── a3f5c892e1b4...enc   (version 1 de app.py)
+├── d9g3h456f2c8...enc   (version 2 de app.py)
 └── ...
 ```
 
-La DB contient : chemin original, version, hash, tailles (original/compressé/chiffré), timestamps, ratio de compression.
+La base de données contient : chemin original, version, hash, tailles (original / compressé / chiffré), timestamps, ratio de compression.
 
 ---
 
 ## 🔒 Sécurité
 
-- Algorithme : AES-256-GCM (authentifié)  
-- Bibliothèque : cryptography (best-effort FIPS-aware usage)  
-- Clé : stockée dans le fichier de configuration par défaut — sauvegardez-la hors-site !
+- Algorithme : AES-256-GCM (authentifié)
+- Bibliothèque : cryptography (best-effort FIPS-aware usage)
+- Intégrité : vérification SHA-256 avant et après chiffrement — corruption détectée à la restauration
+- Permissions Unix : 700 (dossiers) / 600 (fichiers sensibles)
+- Clé stockée dans `config.yaml` — **à sauvegarder hors-site impérativement**
 
-Sauvegarde de la clé (exemples) :
-
-- Windows PowerShell :
+Sauvegarde de la clé :
 ```powershell
+# Windows
 copy $env:USERPROFILE\.mybackup\config.yaml F:\backup_key.yaml
 ```
-- macOS / Linux :
 ```bash
+# macOS / Linux
 cp ~/.mybackup/config.yaml /mnt/secure/backup_key.yaml
 ```
 
-Sans la clé : restauration impossible. Conservez plusieurs copies sécurisées.
-
-Intégrité : vérification SHA-256 avant et après chiffrement ; corruption détectée à la restauration.
+>  Sans la clé : restauration **impossible**. Conservez plusieurs copies (clé USB, cloud chiffré, coffre physique).
 
 ---
 
-## 🐛 Dépannage rapide
+##  Dépannage
 
-- "MyBackup n'est pas initialisé" → exécuter `mybackup init`  
-- "Destination manquante" → `mybackup config set destination "D:\Backups"` (ou chemin POSIX)  
-- "Clé de chiffrement invalide" → restaurer votre config depuis votre copie de sauvegarde
-- Backup lent : diminuer la compression (niveau 1), désactiver la compression ou exclure plus de fichiers  
-- Permission denied : vérifier permissions (NTFS sur Windows, permissions POSIX sur macOS/Linux)
+| Erreur | Solution |
+|--------|----------|
+| "CryptBackup n'est pas initialisé" | Exécuter `cryptbackup init` |
+| "Destination manquante" | `cryptbackup config set destinations.primary "D:\Backups"` |
+| "Clé de chiffrement invalide" | Restaurer votre `config.yaml` depuis votre copie de sauvegarde |
+| Backup lent | Diminuer la compression (`level 1`) ou exclure plus de fichiers |
+| Permission denied | Vérifier permissions NTFS (Windows) ou POSIX (Linux/macOS) |
+| USB non détecté | Vérifier que le périphérique est monté, relancer `cryptbackup status` |
+| NAS inaccessible | Vérifier la connexion réseau, les identifiants et le montage |
 
 ---
 
-## 📈 Roadmap
+##  Roadmap
 
-Sprint 2 (prévu)
-- Daemon de surveillance en arrière-plan
-- Backup automatique toutes les 5 minutes
-- Notifications d'erreur
-- Commande `mybackup watch`
+### Terminé 
+- Backup incrémental avec chiffrement AES-256-GCM
+- Compression Zstandard
+- CLI moderne (Typer + Rich)
+- Surveillance temps réel (watchdog)
+- Priorisation intelligente des fichiers
+- Destinations multiples (local, USB, disque externe, NAS)
+- Détection automatique des périphériques
 
-Futurs
-- Priorisation intelligente (IA)
-- Dashboard web (FastAPI)
-- Support multi-plateformes (Windows, macOS, Linux) -- améliorations en cours
-- Intégration cloud chiffrée
+### En cours 
+- Dashboard web (FastAPI + interface graphique)
+- Daemon de surveillance en arrière-plan (service système)
+
+### Futur 
+- Support cloud chiffré (Backblaze B2, AWS S3)
+- Application mobile (monitoring)
+- Multi-utilisateurs (entreprises)
+- API REST
 
 ---
 
 ## 🤝 Contribution
 
-Ce projet est un projet personnel d'apprentissage — suggestions et contributions bienvenues. Ouvrez une issue ou une PR avec des propositions concrètes.
+Suggestions et contributions bienvenues. Ouvrez une issue ou une pull request sur GitHub.
+
+GitHub : [stephdeve/cryptbackup](https://github.com/stephdeve/cryptbackup)
+PyPI : [pypi.org/project/cryptbackup](https://pypi.org/project/cryptbackup)
 
 ---
 
-## 📄 Licence
+##  Licence
 
-MIT License — utilisation libre.
+MIT License — utilisation libre, modification et distribution autorisées.
 
 ---
 
-## 👨‍💻 Auteur
+##  Auteur
 
 **StephDev** — Développeur (Cotonou, Bénin). Projet réalisé dans le cadre d'un apprentissage Python avancé.
 
 ---
 
-## 🙏 Remerciements
+##  Remerciements
 
-- cryptography.io  
-- Zstandard (zstd)  
-- Typer & Rich  
-- Watchdog
+- [cryptography.io](https://cryptography.io/) — Chiffrement AES-256
+- [Zstandard](https://python-zstandard.readthedocs.io/) — Compression
+- [Typer](https://typer.tiangolo.com/) — CLI moderne
+- [Rich](https://rich.readthedocs.io/) — Interface terminal
+- [Watchdog](https://python-watchdog.readthedocs.io/) — Surveillance fichiers
 
 ---
 
@@ -371,34 +480,28 @@ MIT License — utilisation libre.
 
 ```bash
 # 1. Installer
-python -m venv venv
-# Windows PowerShell
-.\venv\Scripts\Activate.ps1
-# macOS / Linux
-source venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+pip install cryptbackup
 
 # 2. Initialiser
-mybackup init
+cryptbackup init
 
-# 3. Configurer
-# Windows
-mybackup add "C:\Users\VotreNom\Documents"
-mybackup config set destination "D:\Backups"
-# macOS / Linux
-mybackup add "/home/votreuser/Documents"
-mybackup config set destination "/mnt/backups"
+# 3. Ajouter une source
+cryptbackup add "C:\Users\VotreNom\Documents"   # Windows
+cryptbackup add "/home/votreuser/Documents"       # Linux/macOS
 
-# 4. Backup
-mybackup backup
+# 4. Configurer les destinations
+cryptbackup config set destinations.primary "C:\Users\VotreNom\Backup"   # Local
+cryptbackup config set destinations.secondary "E:\Backup"                 # USB / Externe
+cryptbackup config set destinations.tertiary "\\192.168.1.100\backup"    # NAS
 
-# 5. Restaurer
-mybackup restore --file "C:\Users\...\fichier.txt"  # ou chemin POSIX
+# 5. Lancer un backup
+cryptbackup backup
+
+# 6. Vérifier l'état
+cryptbackup status
+
+# 7. Restaurer un fichier
+cryptbackup restore --file "C:\Users\VotreNom\Documents\fichier.txt"
 ```
 
-<<<<<<< HEAD
 **Vos données sont maintenant protégées. 🎉**
-=======
-**Vos données sont maintenant protégées. 🎉**
->>>>>>> 0d82b3e2327da458013841402feabe552baef083
