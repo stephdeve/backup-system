@@ -1,32 +1,39 @@
-"""
-MyBackup - Système de Backup Incrémental Intelligent
-Installation Package
-"""
-
 from setuptools import setup, find_packages
 from pathlib import Path
 
 # Lire le README
-this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text(encoding="utf-8")
+try:
+    long_description = (Path(__file__).parent / "README.md").read_text(encoding="utf-8")
+except FileNotFoundError:
+    long_description = "Backup incremental AES-256, Zstandard, USB/NAS/disque externe"
 
 # Lire les requirements
 requirements = []
-with open("requirements.txt", "r", encoding="utf-8") as fh:
-    for line in fh:
-        line = line.strip()
-        if line and not line.startswith("#"):
-            requirements.append(line)
+try:
+    with open("requirements.txt", "r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                requirements.append(line)
+except FileNotFoundError:
+    requirements = [
+        "cryptography>=42.0.0",
+        "zstandard>=0.22.0",
+        "watchdog>=4.0.0",
+        "typer>=0.12.0",
+        "rich>=13.7.0",
+        "pyyaml>=6.0",
+    ]
 
 setup(
-    name="mybackup",
-    version="1.0.0",
+    name="cryptbackup",
+    version="1.0.5",
     author="StephDev",
     author_email="dev@example.com",
-    description="Système de backup incrémental avec chiffrement, compression et IA",
+    description="Backup incremental AES-256, compression Zstandard, destinations multiples (USB, NAS, disque externe)",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/stephdev/mybackup",
+    url="https://github.com/stephdeve/cryptbackup",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -35,18 +42,13 @@ setup(
         "Topic :: System :: Archiving :: Backup",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Operating System :: Microsoft :: Windows",
-        "Operating System :: POSIX :: Linux",
-        "Operating System :: MacOS",
+        "Operating System :: OS Independent",
     ],
     python_requires=">=3.10",
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "mybackup=mybackup.__main__:main",
+            "cryptbackup=mybackup.__main__:main",
         ],
     },
     include_package_data=True,
