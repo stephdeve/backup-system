@@ -22,8 +22,8 @@ from .utils import format_size, format_timestamp
 from . import CONFIG_FILE, CONFIG_DIR
 
 app = typer.Typer(
-    name="mybackup",
-    help="🔐 Système de backup incrémental intelligent avec chiffrement",
+    name="cryptbackup",
+    help=" Système de backup incrémental intelligent avec chiffrement",
     add_completion=False
 )
 console = Console()
@@ -49,7 +49,7 @@ def _set_secure_permissions(path: Path):
 @app.command()
 def init(force: bool = typer.Option(False, "--force", "-f", help="Écraser la config existante")):
     """
-    🚀 Initialise MyBackup (première utilisation).
+     Initialise MyBackup (première utilisation).
     
     Crée :
     - Fichier de configuration
@@ -66,7 +66,7 @@ def init(force: bool = typer.Option(False, "--force", "-f", help="Écraser la co
         console.print("[yellow]Utilisez --force pour écraser[/yellow]")
         raise typer.Exit(1)
     
-    console.print("[bold blue]🚀 Initialisation de MyBackup...[/bold blue]")
+    console.print("[bold blue] Initialisation de MyBackup...[/bold blue]")
     console.print(f"[dim]Système : {platform.system()} {platform.release()}[/dim]")
     
     # Créer le dossier de config
@@ -105,7 +105,7 @@ def init(force: bool = typer.Option(False, "--force", "-f", help="Écraser la co
     console.print(f"[yellow]Sans elle, vous ne pourrez PAS restaurer vos backups.[/yellow]")
     
     # Instructions adaptées à l'OS
-    console.print(f"\n[bold]💾 Sauvegarder la clé maintenant :[/bold]")
+    console.print(f"\n[bold] Sauvegarder la clé maintenant :[/bold]")
     
     if platform.system() == 'Windows':
         console.print(f"  [cyan]copy {CONFIG_FILE} E:\\BACKUP_KEY_CRITICAL.yaml[/cyan]")
@@ -130,7 +130,7 @@ def add(
     exclude: Optional[str] = typer.Option(None, "--exclude", "-e", help="Patterns à exclure (séparés par ,)")
 ):
     """
-    📁 Ajoute un dossier à surveiller.
+     Ajoute un dossier à surveiller.
     
     Compatible : Windows, Linux, macOS
     
@@ -171,7 +171,7 @@ def add(
 @app.command()
 def remove(path: str = typer.Argument(..., help="Chemin du dossier à retirer")):
     """
-    🗑️  Retire un dossier de la surveillance.
+      Retire un dossier de la surveillance.
     
     Example:
         mybackup remove "C:\\Users\\Dev\\Documents"
@@ -197,7 +197,7 @@ def config_command(
     value: Optional[str] = typer.Argument(None, help="Valeur (pour set)")
 ):
     """
-    ⚙️  Gère la configuration.
+      Gère la configuration.
     
     Examples:
         mybackup config show
@@ -210,7 +210,7 @@ def config_command(
     config = Config()
     
     if action == "show":
-        console.print("\n[bold]📋 Configuration actuelle :[/bold]\n")
+        console.print("\n[bold] Configuration actuelle :[/bold]\n")
         console.print(str(config))
     
     elif action == "set":
@@ -235,10 +235,10 @@ def config_command(
         if value is not None:
             console.print(f"{key} = {value}")
         else:
-            console.print(f"[yellow]⚠️  Clé non trouvée : {key}[/yellow]")
+            console.print(f"[yellow]  Clé non trouvée : {key}[/yellow]")
     
     else:
-        console.print(f"[red]❌ Action inconnue : {action}[/red]")
+        console.print(f"[red] Action inconnue : {action}[/red]")
         console.print("Actions disponibles : show, set, get")
         raise typer.Exit(1)
 
@@ -246,70 +246,82 @@ def config_command(
 @app.command()
 def status():
     """
-    📊 Affiche le statut du système de backup.
-    
-    Compatible : Windows, Linux, macOS
-    
-    Example:
-        mybackup status
+     Affiche le statut du système de backup.
     """
     _ensure_initialized()
-    
+
     config = Config()
     db = BackupDatabase()
-    
-    # Récupérer les stats
+
     stats = db.get_total_stats()
     sources = config.get_sources()
-    destination = config.get_destination('primary')
-    
-    console.print(f"\n[bold blue]📊 État de MyBackup[/bold blue]")
+
+    console.print(f"\n[bold blue] État de CryptBackup[/bold blue]")
     console.print(f"[dim]Système : {platform.system()} {platform.release()}[/dim]\n")
-    
-    # Table de stats
+
+    # Stats
     table = Table(show_header=False, box=None)
     table.add_column("Métrique", style="cyan")
     table.add_column("Valeur", style="bold")
-    
-    table.add_row("Fichiers uniques sauvegardés", str(stats['unique_files']))
+
+    table.add_row("Fichiers sauvegardés", str(stats['unique_files']))
     table.add_row("Versions totales", str(stats['total_versions']))
     table.add_row("Taille originale", format_size(stats['total_size_original']))
-    table.add_row("Taille après chiffrement", format_size(stats['total_size_encrypted']))
+    table.add_row("Taille chiffrée", format_size(stats['total_size_encrypted']))
     table.add_row("Espace économisé", format_size(stats['space_saved']))
-    
+
     if stats['last_backup']:
         last_backup_dt = datetime.fromisoformat(stats['last_backup'])
         table.add_row("Dernier backup", format_timestamp(last_backup_dt))
     else:
         table.add_row("Dernier backup", "[dim]Aucun backup[/dim]")
-    
+
     console.print(table)
-    
+
     # Sources
-    console.print(f"\n[bold]📁 Dossiers surveillés ({len(sources)}) :[/bold]")
-    if sources:
-        for source in sources:
-            console.print(f"  • {source['path']}")
-            if source.get('exclude'):
-                console.print(f"    [dim]Exclusions : {', '.join(source['exclude'])}[/dim]")
-    else:
-        console.print("  [dim]Aucun dossier configuré[/dim]")
-    
-    # Destination
-    console.print(f"\n[bold]💾 Destination :[/bold]")
-    if destination:
-        console.print(f"  • {destination}")
+    console.print(f"\n[bold] Sources ({len(sources)}) :[/bold]")
+    for source in sources:
+        console.print(f"  • {source['path']}")
+        if source.get('exclude'):
+            console.print(f"    [dim]Exclusions : {', '.join(source['exclude'])}[/dim]")
+    if not sources:
+        console.print("  [dim]Aucune source configurée[/dim]")
+
+    # Destinations avec détection du type
+    console.print(f"\n[bold] Destinations :[/bold]")
+    destinations = config.get_all_destinations()
+
+    if destinations:
+        for dest in destinations:
+            # Icône selon le type
+            icons = {
+                'local': '🖥️ ',
+                'usb': '🔌',
+                'external': '💽',
+                'nas': '🌐',
+                'unknown': '❓'
+            }
+            icon = icons.get(dest['device_type'], '❓')
+
+            if dest['accessible']:
+                console.print(
+                    f"  {icon} [{dest['name']}] {dest['path']} "
+                    f"[green][/green] [dim]Libre : {dest['free_space']}[/dim]"
+                )
+            else:
+                console.print(
+                    f"  {icon} [{dest['name']}] {dest['path']} "
+                    f"[red] {dest['error']}[/red]"
+                )
     else:
         console.print("  [yellow]  Aucune destination configurée[/yellow]")
-
-
 @app.command(name="list")
 def list_versions(
     file_path: str = typer.Argument(..., help="Chemin du fichier dont voir l'historique"),
     limit: int = typer.Option(10, "--limit", "-n", help="Nombre de versions à afficher")
 ):
     """
-    📜 Liste l'historique des versions d'un fichier.
+     Liste l'historique des versions d'un fichier.
     
     Example:
         mybackup list "C:\\Users\\Dev\\Documents\\rapport.pdf"
@@ -331,7 +343,7 @@ def list_versions(
     # Limiter le nombre de résultats
     versions = versions[-limit:]
     
-    console.print(f"\n[bold]📜 Historique de : {file_path_expanded}[/bold]\n")
+    console.print(f"\n[bold] Historique de : {file_path_expanded}[/bold]\n")
     
     table = Table()
     table.add_column("Version", style="cyan")
@@ -355,7 +367,7 @@ def list_versions(
 @app.command()
 def sysinfo():
     """
-    🖥️  Affiche les informations système.
+      Affiche les informations système.
     
     Utile pour diagnostiquer les problèmes de compatibilité.
     
@@ -385,7 +397,7 @@ def sysinfo():
     console.print(table)
     
     # Modules
-    console.print("\n[bold]📦 Modules Python :[/bold]")
+    console.print("\n[bold] Modules Python :[/bold]")
     modules = [
         'cryptography',
         'zstandard',
