@@ -72,7 +72,7 @@ cryptbackup init
 1. Cloner le dépôt :
 ```bash
 git clone https://github.com/stephdeve/backup-system.git
-cd cryptbackup
+cd backup-system
 ```
 
 2. Créer et activer un environnement virtuel :
